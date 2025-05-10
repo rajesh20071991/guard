@@ -1,11 +1,11 @@
+
 'use server';
 import { guardReportSchema, imageUploadLocationsArray, GuardReportFormValues } from '@/lib/form-schema';
-import { appendDataToSheet, uploadFileToDrive } from '@/lib/google-api';
+import { appendDataToSheet, uploadFileToDrive, ApiResultSuccessUpload, ApiResult } from '@/lib/google-api';
 import { Readable } from 'stream';
 
 // Helper function to convert File to ReadableStream
 function fileToReadableStream(file: File): Readable {
-  // For Node.js environments, ArrayBuffer to Buffer to Readable stream
   const arrayBufferToBuffer = (arrayBuffer: ArrayBuffer) => {
     const buffer = Buffer.alloc(arrayBuffer.byteLength);
     const view = new Uint8Array(arrayBuffer);
@@ -16,11 +16,11 @@ function fileToReadableStream(file: File): Readable {
   };
 
   const readable = new Readable();
-  readable._read = () => {}; // _read is required
+  readable._read = () => {}; 
 
   file.arrayBuffer().then(arrayBuffer => {
     readable.push(arrayBufferToBuffer(arrayBuffer));
-    readable.push(null); // Signal end of stream
+    readable.push(null); 
   }).catch(err => {
     readable.emit('error', err);
   });
@@ -48,11 +48,7 @@ export async function submitGuardReport(
     if (file instanceof File && file.size > 0) {
       rawData[normalizedName] = file;
     } else {
-      // Add a placeholder or handle missing file if validation allows optional
-      // For now, assuming validation will catch this if required.
-      // If file input is empty, react-hook-form might pass an empty string or null
-      // Zod schema expects File instance.
-      rawData[normalizedName] = undefined; // Or handle appropriately if files are optional
+      rawData[normalizedName] = undefined; 
     }
   });
   
@@ -85,18 +81,28 @@ export async function submitGuardReport(
       if (file && file.size > 0) {
         const fileName = `${timestamp}_${normalizedLocationName}.${file.name.split('.').pop()}`;
         const fileStream = fileToReadableStream(file);
-        const uploadResult = await uploadFileToDrive(fileName, file.type, fileStream);
-        reportDataForSheet[`${normalizedLocationName}Url`] = uploadResult.webViewLink || 'Upload Failed';
+        const uploadResult: ApiResult<ApiResultSuccessUpload> = await uploadFileToDrive(fileName, file.type, fileStream);
+        
+        if (!uploadResult.success) {
+          // If upload failed, return the error message from uploadFileToDrive
+          return { success: false, message: uploadResult.message };
+        }
+        reportDataForSheet[`${normalizedLocationName}Url`] = uploadResult.webViewLink || 'Upload Failed, no link';
       } else {
          reportDataForSheet[`${normalizedLocationName}Url`] = 'No file uploaded';
       }
     }
 
-    await appendDataToSheet(reportDataForSheet);
+    const appendResult = await appendDataToSheet(reportDataForSheet);
+    if (!appendResult.success) {
+      // If appending to sheet failed, return the error message
+      return { success: false, message: appendResult.message };
+    }
 
     return { success: true, message: 'Report submitted successfully!' };
   } catch (error: any) {
-    console.error('Error submitting report:', error);
-    return { success: false, message: error.message || 'Failed to submit report. Please try again.' };
+    // This catch block is for unexpected errors not handled by ApiResult pattern
+    console.error('Unexpected error submitting report:', error);
+    return { success: false, message: 'An unexpected error occurred. Please try again.' };
   }
 }
