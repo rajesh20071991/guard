@@ -1,7 +1,9 @@
+
 'use client';
 
 import type { FC } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react'; // Corrected: useActionState from react
+import { useFormStatus } from 'react-dom'; // useFormStatus is from react-dom
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -59,7 +61,7 @@ const FormError: FC<FormErrorProps> = ({ messages }) => {
 
 
 export const GuardForm: FC = () => {
-  const [state, formAction] = useFormState(submitGuardReport, initialFormState);
+  const [state, formAction] = useActionState(submitGuardReport, initialFormState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -68,12 +70,11 @@ export const GuardForm: FC = () => {
 
   const {
     register,
-    handleSubmit,
     control,
     formState: { errors: clientErrors },
     reset,
-    setValue, // To set file values programmatically if needed
-    watch, // To watch file inputs for previews or name display
+    setValue, 
+    watch, 
   } = useForm<GuardReportFormValues>({
     resolver: zodResolver(guardReportSchema),
     mode: 'onSubmit', // Validate on submit
