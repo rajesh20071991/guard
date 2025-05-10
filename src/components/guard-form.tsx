@@ -1,10 +1,9 @@
-
 'use client';
 
 import type { FC } from 'react';
-import { useActionState } from 'react'; // Corrected: useActionState from react
-import { useFormStatus } from 'react-dom'; // useFormStatus is from react-dom
-import { useForm } from 'react-hook-form';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   guardReportSchema,
@@ -24,7 +23,6 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import { User, LightbulbOff, Lock, Repeat, Camera, AlertCircle } from 'lucide-react';
-import { Controller } from 'react-hook-form';
 
 const initialFormState = {
   success: false,
@@ -65,7 +63,6 @@ export const GuardForm: FC = () => {
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Store file names for display
   const [fileNames, setFileNames] = useState<Record<string, string>>({});
 
   const {
@@ -73,11 +70,10 @@ export const GuardForm: FC = () => {
     control,
     formState: { errors: clientErrors },
     reset,
-    setValue, 
-    watch, 
+    setValue,
   } = useForm<GuardReportFormValues>({
     resolver: zodResolver(guardReportSchema),
-    mode: 'onSubmit', // Validate on submit
+    mode: 'onSubmit',
   });
 
   useEffect(() => {
@@ -86,23 +82,26 @@ export const GuardForm: FC = () => {
         title: 'Success',
         description: state.message,
       });
-      formRef.current?.reset(); // Reset native form
-      reset(); // Reset react-hook-form state
-      setFileNames({}); // Clear displayed file names
-    } else if (state.message && !state.success && state.errors) { // Check for state.errors to differentiate from initial state
+      formRef.current?.reset(); 
+      reset(); 
+      setFileNames({}); 
+    } else if (state.message && !state.success) { 
+      // This condition now covers all errors with a message,
+      // whether they are validation errors (state.errors is truthy)
+      // or general server errors (state.errors is falsy).
+      const title = state.errors ? 'Validation Error' : 'Submission Error';
       toast({
-        title: 'Error',
+        title: title,
         description: state.message,
         variant: 'destructive',
       });
     }
   }, [state, toast, reset]);
   
-  // Handler for file input changes to update displayed file names
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, fieldName: keyof GuardReportFormValues) => {
     const file = event.target.files?.[0];
     if (file) {
-      setValue(fieldName, file as any, { shouldValidate: true }); // Update react-hook-form
+      setValue(fieldName, file as any, { shouldValidate: true });
       setFileNames(prev => ({ ...prev, [fieldName]: file.name }));
     } else {
       setValue(fieldName, undefined as any, { shouldValidate: true });
@@ -120,7 +119,6 @@ export const GuardForm: FC = () => {
       </CardHeader>
       <form action={formAction} ref={formRef} noValidate>
         <CardContent className="space-y-6">
-          {/* Section 1: Basic Info */}
           <div className="space-y-4 p-4 border rounded-lg shadow-sm">
             <h3 className="text-lg font-semibold flex items-center"><User className="mr-2 h-5 w-5 text-primary" />Guard Information</h3>
             <div className="space-y-2">
@@ -130,7 +128,6 @@ export const GuardForm: FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Location Checks */}
           <div className="space-y-4 p-4 border rounded-lg shadow-sm">
             <h3 className="text-lg font-semibold flex items-center"><LightbulbOff className="mr-2 h-5 w-5 text-primary" />Lights & Locks</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -174,7 +171,6 @@ export const GuardForm: FC = () => {
             </div>
           </div>
           
-          {/* Section 3: Rounds */}
            <div className="space-y-4 p-4 border rounded-lg shadow-sm">
              <h3 className="text-lg font-semibold flex items-center"><Repeat className="mr-2 h-5 w-5 text-primary" />Rounds Completed</h3>
               <div className="space-y-2">
@@ -197,7 +193,6 @@ export const GuardForm: FC = () => {
               </div>
            </div>
 
-          {/* Section 4: Image Uploads */}
           <div className="space-y-4 p-4 border rounded-lg shadow-sm">
             <h3 className="text-lg font-semibold flex items-center"><Camera className="mr-2 h-5 w-5 text-primary" />Location Images</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -210,7 +205,7 @@ export const GuardForm: FC = () => {
                       id={fieldName} 
                       type="file" 
                       accept="image/jpeg,image/png,image/webp"
-                      name={fieldName} // Ensure name attribute is set for FormData
+                      name={fieldName} 
                       onChange={(e) => handleFileChange(e, fieldName)}
                       aria-invalid={!!(combinedErrors as any)?.[fieldName]}
                       className="file:text-primary file:font-semibold hover:file:bg-primary/10"
@@ -223,6 +218,7 @@ export const GuardForm: FC = () => {
             </div>
           </div>
           <Separator />
+           {/* This inline message is specifically for server errors that aren't validation field errors */}
            {state.message && !state.success && !state.errors && (
              <div className="flex items-center space-x-2 text-sm text-destructive p-2 bg-destructive/10 rounded-md">
                 <AlertCircle className="h-4 w-4" />
